@@ -1,0 +1,46 @@
+{
+  "name": "gestor-eleitoral-backend",
+  "version": "1.0.0",
+  "description": "API REST do Gestor Eleitoral - projeto academico",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node scripts/migrate.js",
+    "seed:admin": "node scripts/seed-admin.js",
+    "start:prod": "npm run migrate && npm start",
+    "audit:prod": "npm audit --omit=dev",
+    "test": "node --test",
+    "lint": "eslint .",
+    "check": "npm run lint && npm test && npm run audit:prod"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^6.2.1",
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
+    "express-validator": "^7.3.2",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
+    "pg": "^8.13.1"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "eslint": "^9.39.4"
+  }
+}
