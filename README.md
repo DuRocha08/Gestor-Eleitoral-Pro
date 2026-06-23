@@ -65,29 +65,13 @@ psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/009_ope
 psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/010_administrador_global.sql
 psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/005_permissoes_gestor_app.sql
 ```
-
-## Documentacao
-
-- [Sistema de administrador](docs/SISTEMA_ADMINISTRADOR.md)
-- [Guia completo: uso, Hostinger e Cloudflare](docs/GUIA_COMPLETO_USO_HOSTINGER_CLOUDFLARE.md)
-
-- `docs/GUIA_DEPLOY_PRODUCAO.md`: deploy no GitHub/Render, variaveis, dominio, seguranca e operacao.
-- `docs/GUIA_LANCAMENTO_HOJE.md`: comandos completos, checklist e bloqueios antes da publicacao.
-- `docs/MANUAL_BANCO_DE_DADOS.md`: guia para instalar, conectar, consultar, inserir, editar, excluir, fazer backup e restaurar o banco.
-- `docs/MANUAL_USO_COMPLETO_SITE.md`: passo a passo de todas as telas, importações, permissões e rotinas de uso.
-- `RELATORIO_MELHORIAS_OPERACIONAIS.md`: melhorias de seguranca e operacao implementadas.
-
 ## Testes
 
-```bash
+``bash
 npm test --prefix Backend
 npm test --prefix frontend
 npm run lint --prefix Backend
 npm run lint --prefix frontend
 npm run test:e2e --prefix frontend
 npm run build --prefix frontend
-```
-
-## Observacao
-
-Nao envie `.env`, `node_modules` ou `dist` em repositorios publicos. Use o `.env.example` como modelo.
+``
