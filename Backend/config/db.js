@@ -4,12 +4,10 @@ const { Pool } = require('pg');
 function montarSslConfig() {
   const rejeitarCertificadoInvalido = process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false';
 
-  if (process.env.DB_SSL === 'true') {
-    return { rejectUnauthorized: rejeitarCertificadoInvalido };
-  }
-
   if (!process.env.DATABASE_URL) {
-    return false;
+    return process.env.DB_SSL === 'true'
+      ? { rejectUnauthorized: rejeitarCertificadoInvalido }
+      : false;
   }
 
   let urlBanco;
@@ -29,6 +27,9 @@ function montarSslConfig() {
     return { rejectUnauthorized: false };
   }
   if (sslMode === 'verify-ca' || sslMode === 'verify-full') {
+    return { rejectUnauthorized: rejeitarCertificadoInvalido };
+  }
+  if (process.env.DB_SSL === 'true') {
     return { rejectUnauthorized: rejeitarCertificadoInvalido };
   }
 
