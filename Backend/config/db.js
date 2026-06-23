@@ -62,7 +62,7 @@ function montarConexao() {
 
 const conexao = montarConexao();
 
-function mascarar(valor) {
+function esconder(valor) {
   if (!valor) return null;
   const texto = String(valor);
   if (texto.length <= 3) return '***';
@@ -78,9 +78,9 @@ function descreverBanco() {
         host: url.hostname,
         porta: url.port || '5432',
         banco: url.pathname.replace('/', '') || null,
-        usuario: mascarar(decodeURIComponent(url.username)),
+        usuario: esconder(decodeURIComponent(url.username)),
         ssl: sslConfig ? 'ativo' : 'desativado',
-        ssl_reject_unauthorized: Boolean(sslConfig && sslConfig.rejectUnauthorized),
+        confere_certificado_ssl: Boolean(sslConfig && sslConfig.rejectUnauthorized),
       };
     } catch (_) {
       return { origem: 'DATABASE_URL', url_valida: false };
@@ -92,13 +92,13 @@ function descreverBanco() {
     host: process.env.DB_HOST || null,
     porta: process.env.DB_PORT || '5432',
     banco: process.env.DB_NAME || null,
-    usuario: mascarar(process.env.DB_USER),
+    usuario: esconder(process.env.DB_USER),
     ssl: sslConfig ? 'ativo' : 'desativado',
-    ssl_reject_unauthorized: Boolean(sslConfig && sslConfig.rejectUnauthorized),
+    confere_certificado_ssl: Boolean(sslConfig && sslConfig.rejectUnauthorized),
   };
 }
 
-function detalhesErroBanco(err) {
+function erroBancoParaLog(err) {
   return {
     code: err?.code || null,
     name: err?.name || null,
@@ -120,7 +120,7 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('[DB] erro no pool:', detalhesErroBanco(err));
+  console.error('[DB] erro no pool:', erroBancoParaLog(err));
 });
 
 async function testarConexao() {
@@ -132,9 +132,9 @@ async function testarConexao() {
     console.log('[DB] conectou com sucesso em:', res.rows[0].data_servidor);
     return { ok: true };
   } catch (err) {
-    console.error('[DB] nao conseguiu conectar:', detalhesErroBanco(err));
+    console.error('[DB] nao conseguiu conectar:', erroBancoParaLog(err));
     console.log('[DB] confira o .env: DATABASE_URL ou DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME');
-    return { ok: false, erro: detalhesErroBanco(err) };
+    return { ok: false, erro: erroBancoParaLog(err) };
   } finally {
     if (client) client.release();
   }
@@ -180,6 +180,6 @@ module.exports = {
   encerrarPool,
   testarConexao,
   verificarEstruturaBasica,
-  detalhesErroBanco,
+  erroBancoParaLog,
   descreverBanco,
 };

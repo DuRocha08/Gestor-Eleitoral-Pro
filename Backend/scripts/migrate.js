@@ -7,7 +7,7 @@ if (process.env.DATABASE_MIGRATION_URL) {
 
 const fs = require('fs');
 const path = require('path');
-const { getClient, encerrarPool, detalhesErroBanco } = require('../config/db');
+const { getClient, encerrarPool, erroBancoParaLog } = require('../config/db');
 
 const MIGRACOES = [
   { id: '001_schema', arquivo: 'schema.sql', estruturaInicial: true },
@@ -68,6 +68,6 @@ async function executar() {
 }
 
 executar().catch(function(erro) {
-  console.error('[MIGRATION] falha:', detalhesErroBanco(erro));
+  console.error('[MIGRATION] falha:', erroBancoParaLog(erro));
   process.exitCode = 1;
 });

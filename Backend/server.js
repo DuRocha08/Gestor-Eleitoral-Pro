@@ -2,7 +2,7 @@
 
 require('dotenv').config();
 
-function detalhesErro(err) {
+function erroParaLog(err) {
   return {
     code: err?.code || null,
     name: err?.name || null,
@@ -17,7 +17,7 @@ function detalhesErro(err) {
 }
 
 function logarErroFatal(etapa, err) {
-  console.error('[BOOT] falha em ' + etapa + ':', detalhesErro(err));
+  console.error('[BOOT] falha em ' + etapa + ':', erroParaLog(err));
 }
 
 process.on('uncaughtException', function(err) {
@@ -38,7 +38,7 @@ let query;
 let testarConexao;
 let encerrarPool;
 let verificarEstruturaBasica;
-let detalhesErroBanco;
+let erroBancoParaLog;
 let limiterApi;
 let authRoutes;
 let voterRoutes;
@@ -64,7 +64,7 @@ try {
     testarConexao,
     encerrarPool,
     verificarEstruturaBasica,
-    detalhesErroBanco,
+    erroBancoParaLog,
   } = require('./config/db'));
   ({ limiterApi } = require('./middlewares/rateLimiter'));
 
@@ -91,15 +91,15 @@ const PORTA = process.env.PORT || 3001;
 
 function resumoAmbiente() {
   return {
-    node_env: process.env.NODE_ENV || 'development',
-    node_version: process.version,
+    ambiente: process.env.NODE_ENV || 'development',
+    node: process.version,
     porta: String(PORTA),
     usa_database_url: Boolean(process.env.DATABASE_URL),
     tem_db_host: Boolean(process.env.DB_HOST),
-    cors_configurado: Boolean(process.env.CORS_ORIGINS),
+    cors_ok: Boolean(process.env.CORS_ORIGINS),
     trust_proxy: String(process.env.TRUST_PROXY || 'false'),
-    whatsapp_simulacao: String(process.env.WHATSAPP_SIMULATION_MODE !== 'false'),
-    email_configurado: Boolean(process.env.RESEND_API_KEY && process.env.PASSWORD_RESET_FROM && process.env.FRONTEND_URL),
+    whatsapp_simulado: String(process.env.WHATSAPP_SIMULATION_MODE !== 'false'),
+    email_ok: Boolean(process.env.RESEND_API_KEY && process.env.PASSWORD_RESET_FROM && process.env.FRONTEND_URL),
   };
 }
 
@@ -380,7 +380,7 @@ async function iniciarServidor() {
     console.log('[BOOT] verificando importacoes pendentes...');
     await retomarImportacoesPendentes();
   } catch (err) {
-    console.error('[BOOT] nao retomou importacoes pendentes:', detalhesErroBanco(err));
+    console.error('[BOOT] nao retomou importacoes pendentes:', erroBancoParaLog(err));
   }
 
   console.log('[BOOT] abrindo porta HTTP...');
