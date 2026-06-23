@@ -1,9 +1,43 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
-const sslConfig = process.env.DB_SSL === 'true'
-  ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
-  : false;
+function montarSslConfig() {
+  const rejeitarCertificadoInvalido = process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false';
+
+  if (process.env.DB_SSL === 'true') {
+    return { rejectUnauthorized: rejeitarCertificadoInvalido };
+  }
+
+  if (!process.env.DATABASE_URL) {
+    return false;
+  }
+
+  let urlBanco;
+  try {
+    urlBanco = new URL(process.env.DATABASE_URL);
+  } catch (_) {
+    return process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: rejeitarCertificadoInvalido }
+      : false;
+  }
+
+  const sslMode = String(urlBanco.searchParams.get('sslmode') || '').toLowerCase();
+  if (sslMode === 'disable') {
+    return false;
+  }
+  if (sslMode === 'require' || sslMode === 'prefer' || sslMode === 'allow' || sslMode === 'no-verify') {
+    return { rejectUnauthorized: false };
+  }
+  if (sslMode === 'verify-ca' || sslMode === 'verify-full') {
+    return { rejectUnauthorized: rejeitarCertificadoInvalido };
+  }
+
+  return process.env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: rejeitarCertificadoInvalido }
+    : false;
+}
+
+const sslConfig = montarSslConfig();
 
 const conexao = process.env.DATABASE_URL
   ? { connectionString: process.env.DATABASE_URL }
@@ -36,7 +70,7 @@ async function testarConexao() {
     return true;
   } catch (err) {
     console.log('[DB] nao conseguiu conectar:', process.env.NODE_ENV === 'production' ? (err.code || 'erro_conexao') : err.message);
-    console.log('[DB] confira o .env: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME');
+    console.log('[DB] confira o .env: DATABASE_URL ou DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME');
     return false;
   } finally {
     if (client) client.release();
