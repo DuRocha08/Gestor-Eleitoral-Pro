@@ -2,28 +2,106 @@
 
 require('dotenv').config();
 
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const crypto = require('crypto');
-const { query, testarConexao, encerrarPool } = require('./config/db');
-const { limiterApi } = require('./middlewares/rateLimiter');
+function detalhesErro(err) {
+  return {
+    code: err?.code || null,
+    name: err?.name || null,
+    message: err?.message || null,
+    detail: err?.detail || null,
+    hint: err?.hint || null,
+    table: err?.table || null,
+    column: err?.column || null,
+    constraint: err?.constraint || null,
+    stack: process.env.NODE_ENV === 'production' ? undefined : err?.stack,
+  };
+}
 
-const authRoutes        = require('./routes/authRoutes');
-const voterRoutes       = require('./routes/voterRoutes');
-const integrationRoutes = require('./routes/integrationRoutes');
-const demandRoutes      = require('./routes/demandRoutes');
-const financeRoutes     = require('./routes/financeRoutes');
-const planilhaRoutes    = require('./routes/planilhaRoutes');
-const teamRoutes        = require('./routes/teamRoutes');
-const auditRoutes       = require('./routes/auditRoutes');
-const { retomarImportacoesPendentes } = require('./controllers/importController');
-const monitoringRoutes  = require('./routes/monitoringRoutes');
-const platformAdminRoutes = require('./routes/platformAdminRoutes');
-const { enviarAlertaErro } = require('./services/alertService');
+function logarErroFatal(etapa, err) {
+  console.error('[BOOT] falha em ' + etapa + ':', detalhesErro(err));
+}
+
+process.on('uncaughtException', function(err) {
+  logarErroFatal('erro nao tratado', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', function(err) {
+  logarErroFatal('promise rejeitada', err);
+  process.exit(1);
+});
+
+let express;
+let cors;
+let helmet;
+let crypto;
+let query;
+let testarConexao;
+let encerrarPool;
+let verificarEstruturaBasica;
+let detalhesErroBanco;
+let limiterApi;
+let authRoutes;
+let voterRoutes;
+let integrationRoutes;
+let demandRoutes;
+let financeRoutes;
+let planilhaRoutes;
+let teamRoutes;
+let auditRoutes;
+let retomarImportacoesPendentes;
+let monitoringRoutes;
+let platformAdminRoutes;
+let enviarAlertaErro;
+
+try {
+  console.log('[BOOT] carregando dependencias do backend...');
+  express = require('express');
+  cors = require('cors');
+  helmet = require('helmet');
+  crypto = require('crypto');
+  ({
+    query,
+    testarConexao,
+    encerrarPool,
+    verificarEstruturaBasica,
+    detalhesErroBanco,
+  } = require('./config/db'));
+  ({ limiterApi } = require('./middlewares/rateLimiter'));
+
+  authRoutes        = require('./routes/authRoutes');
+  voterRoutes       = require('./routes/voterRoutes');
+  integrationRoutes = require('./routes/integrationRoutes');
+  demandRoutes      = require('./routes/demandRoutes');
+  financeRoutes     = require('./routes/financeRoutes');
+  planilhaRoutes    = require('./routes/planilhaRoutes');
+  teamRoutes        = require('./routes/teamRoutes');
+  auditRoutes       = require('./routes/auditRoutes');
+  ({ retomarImportacoesPendentes } = require('./controllers/importController'));
+  monitoringRoutes  = require('./routes/monitoringRoutes');
+  platformAdminRoutes = require('./routes/platformAdminRoutes');
+  ({ enviarAlertaErro } = require('./services/alertService'));
+  console.log('[BOOT] dependencias carregadas.');
+} catch (err) {
+  logarErroFatal('carregar dependencias', err);
+  process.exit(1);
+}
 
 const app = express();
 const PORTA = process.env.PORT || 3001;
+
+function resumoAmbiente() {
+  return {
+    node_env: process.env.NODE_ENV || 'development',
+    node_version: process.version,
+    porta: String(PORTA),
+    usa_database_url: Boolean(process.env.DATABASE_URL),
+    tem_db_host: Boolean(process.env.DB_HOST),
+    cors_configurado: Boolean(process.env.CORS_ORIGINS),
+    trust_proxy: String(process.env.TRUST_PROXY || 'false'),
+    whatsapp_simulacao: String(process.env.WHATSAPP_SIMULATION_MODE !== 'false'),
+    email_configurado: Boolean(process.env.RESEND_API_KEY && process.env.PASSWORD_RESET_FROM && process.env.FRONTEND_URL),
+  };
+}
 
 function carregarOrigensPermitidas() {
   const origens = new Set();
@@ -56,6 +134,10 @@ function carregarOrigensPermitidas() {
 const origensPermitidas = carregarOrigensPermitidas();
 
 function validarConfiguracao() {
+  if (!process.env.ALLOW_PUBLIC_REGISTRATION) {
+    process.env.ALLOW_PUBLIC_REGISTRATION = process.env.NODE_ENV === 'production' ? 'false' : 'true';
+  }
+
   const usaUrlBanco = Boolean(process.env.DATABASE_URL);
   const obrigatorias = usaUrlBanco
     ? ['JWT_SECRET']
@@ -92,9 +174,6 @@ function validarConfiguracao() {
     throw new Error('MFA_ENCRYPTION_KEY deve ser aleatoria, ter 64 caracteres e ser diferente do JWT_SECRET.');
   }
   const configuracoesEmail = [process.env.RESEND_API_KEY, process.env.PASSWORD_RESET_FROM, process.env.FRONTEND_URL];
-  if (process.env.NODE_ENV === 'production' && !configuracoesEmail.every(Boolean)) {
-    throw new Error('Recuperacao de senha exige RESEND_API_KEY, PASSWORD_RESET_FROM e FRONTEND_URL em producao.');
-  }
   if (configuracoesEmail.some(Boolean) && !configuracoesEmail.every(Boolean)) {
     throw new Error('Configure RESEND_API_KEY, PASSWORD_RESET_FROM e FRONTEND_URL em conjunto.');
   }
@@ -122,8 +201,8 @@ function validarConfiguracao() {
   if (!['true', 'false'].includes(String(process.env.TRUST_PROXY || 'false'))) {
     throw new Error('TRUST_PROXY deve ser definido como true ou false.');
   }
-  if (process.env.NODE_ENV === 'production' && !['true', 'false'].includes(process.env.ALLOW_PUBLIC_REGISTRATION)) {
-    throw new Error('ALLOW_PUBLIC_REGISTRATION deve ser definido como true ou false em producao.');
+  if (!['true', 'false'].includes(String(process.env.ALLOW_PUBLIC_REGISTRATION || 'false'))) {
+    throw new Error('ALLOW_PUBLIC_REGISTRATION deve ser definido como true ou false.');
   }
   if (process.env.WHATSAPP_SIMULATION_MODE === 'false' && !process.env.EVOLUTION_API_KEY) {
     throw new Error('EVOLUTION_API_KEY e obrigatoria quando a simulacao do WhatsApp esta desativada.');
@@ -223,8 +302,7 @@ app.use('/api/audit',         auditRoutes);
 app.use('/api/monitoring',    monitoringRoutes);
 app.use('/api/platform-admin', platformAdminRoutes);
 
-// O provedor usa esta rota para saber se a API e o banco estao disponiveis.
-app.get('/api/health', async function(req, res) {
+async function responderHealth(_req, res) {
   try {
     await query('SELECT 1');
     res.status(200).json({
@@ -241,7 +319,11 @@ app.get('/api/health', async function(req, res) {
       timestamp: new Date().toISOString(),
     });
   }
-});
+}
+
+// O provedor usa esta rota para saber se a API e o banco estao disponiveis.
+app.get('/api/health', responderHealth);
+app.get('/health', responderHealth);
 
 app.use(function(req, res) {
   res.status(404).json({ erro: 'Rota nao encontrada' });
@@ -273,16 +355,35 @@ app.use(function(err, req, res, _next) {
 });
 
 async function iniciarServidor() {
+  console.log('[BOOT] iniciando servidor:', resumoAmbiente());
+  console.log('[BOOT] validando variaveis de ambiente...');
   validarConfiguracao();
-  const bancoOk = await testarConexao();
+  console.log('[BOOT] variaveis principais OK.');
 
-  if (!bancoOk) {
+  console.log('[BOOT] testando conexao com banco...');
+  const resultadoBanco = await testarConexao();
+
+  if (!resultadoBanco.ok) {
     console.error('[SERVIDOR] banco inacessivel, encerrando...');
     process.exit(1);
   }
 
-  await retomarImportacoesPendentes();
+  console.log('[BOOT] verificando tabelas principais...');
+  const tabelasAusentes = await verificarEstruturaBasica();
+  if (tabelasAusentes.length > 0) {
+    console.error('[DB] tabelas ausentes:', tabelasAusentes.join(', '));
+    console.error('[DB] rode as migrations antes de iniciar a API em producao.');
+    process.exit(1);
+  }
 
+  try {
+    console.log('[BOOT] verificando importacoes pendentes...');
+    await retomarImportacoesPendentes();
+  } catch (err) {
+    console.error('[BOOT] nao retomou importacoes pendentes:', detalhesErroBanco(err));
+  }
+
+  console.log('[BOOT] abrindo porta HTTP...');
   const servidor = app.listen(PORTA, function() {
     console.log('[SERVIDOR] rodando na porta ' + PORTA);
   });
@@ -319,6 +420,6 @@ async function iniciarServidor() {
 }
 
 iniciarServidor().catch(function(err) {
-  console.error('[SERVIDOR] erro ao iniciar:', err?.message || err);
+  logarErroFatal('iniciar servidor', err);
   process.exit(1);
 });
