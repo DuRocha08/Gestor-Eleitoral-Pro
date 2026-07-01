@@ -52,6 +52,7 @@ let retomarImportacoesPendentes;
 let monitoringRoutes;
 let platformAdminRoutes;
 let enviarAlertaErro;
+let emailConfigurado;
 
 try {
   console.log('[BOOT] carregando dependencias do backend...');
@@ -80,6 +81,7 @@ try {
   monitoringRoutes  = require('./routes/monitoringRoutes');
   platformAdminRoutes = require('./routes/platformAdminRoutes');
   ({ enviarAlertaErro } = require('./services/alertService'));
+  ({ configurado: emailConfigurado } = require('./services/emailService'));
   console.log('[BOOT] dependencias carregadas.');
 } catch (err) {
   logarErroFatal('carregar dependencias', err);
@@ -99,7 +101,7 @@ function resumoAmbiente() {
     cors_ok: Boolean(process.env.CORS_ORIGINS),
     trust_proxy: String(process.env.TRUST_PROXY || 'false'),
     whatsapp_simulado: String(process.env.WHATSAPP_SIMULATION_MODE !== 'false'),
-    email_ok: Boolean(process.env.RESEND_API_KEY && process.env.PASSWORD_RESET_FROM && process.env.FRONTEND_URL),
+    email_ok: emailConfigurado(),
   };
 }
 
@@ -173,9 +175,38 @@ function validarConfiguracao() {
        process.env.MFA_ENCRYPTION_KEY === process.env.JWT_SECRET)) {
     throw new Error('MFA_ENCRYPTION_KEY deve ser aleatoria, ter 64 caracteres e ser diferente do JWT_SECRET.');
   }
-  const configuracoesEmail = [process.env.RESEND_API_KEY, process.env.PASSWORD_RESET_FROM, process.env.FRONTEND_URL];
-  if (configuracoesEmail.some(Boolean) && !configuracoesEmail.every(Boolean)) {
-    throw new Error('Configure RESEND_API_KEY, PASSWORD_RESET_FROM e FRONTEND_URL em conjunto.');
+  const temResend = Boolean(process.env.RESEND_API_KEY);
+  const camposSmtp = [
+    process.env.SMTP_HOST,
+    process.env.SMTP_PORT,
+    process.env.SMTP_USER,
+    process.env.SMTP_PASS,
+  ];
+  const temSmtpParcial = camposSmtp.some(Boolean);
+  const temSmtpCompleto = camposSmtp.every(Boolean);
+  const temEmailParcial = Boolean(
+    process.env.PASSWORD_RESET_FROM ||
+    process.env.FRONTEND_URL ||
+    temResend ||
+    temSmtpParcial
+  );
+  if (temEmailParcial && !process.env.PASSWORD_RESET_FROM) {
+    throw new Error('PASSWORD_RESET_FROM e obrigatorio para recuperacao de senha por e-mail.');
+  }
+  if (temEmailParcial && !process.env.FRONTEND_URL) {
+    throw new Error('FRONTEND_URL e obrigatoria para recuperacao de senha por e-mail.');
+  }
+  if (temSmtpParcial && !temSmtpCompleto) {
+    throw new Error('Configure SMTP_HOST, SMTP_PORT, SMTP_USER e SMTP_PASS em conjunto.');
+  }
+  if (temEmailParcial && !temResend && !temSmtpCompleto) {
+    throw new Error('Configure RESEND_API_KEY ou as variaveis SMTP_* para enviar recuperacao de senha.');
+  }
+  if (process.env.SMTP_PORT && !Number.isInteger(Number(process.env.SMTP_PORT))) {
+    throw new Error('SMTP_PORT deve ser numerica.');
+  }
+  if (process.env.SMTP_SECURE && !['true', 'false'].includes(String(process.env.SMTP_SECURE))) {
+    throw new Error('SMTP_SECURE deve ser definido como true ou false.');
   }
   if (process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL) {
     const frontend = new URL(process.env.FRONTEND_URL);

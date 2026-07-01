@@ -133,7 +133,7 @@ function App() {
             <Route path="/login" element={<RotaPublica><Login /></RotaPublica>} />
             <Route path="/register" element={<RotaPublica><Register /></RotaPublica>} />
             <Route path="/forgot-password" element={<RotaPublica><ForgotPassword /></RotaPublica>} />
-            <Route path="/reset-password" element={<RotaPublica><ResetPassword /></RotaPublica>} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route element={<RotaProtegida />}>
               <Route element={<LayoutPrincipal />}>
                 <Route path="/dashboard" element={<Dashboard />} />

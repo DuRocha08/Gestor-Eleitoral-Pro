@@ -151,6 +151,7 @@ async function verificarEstruturaBasica() {
     'movimentacoes_financeiras',
     'auditoria',
     'jobs_importacao',
+    'tokens_recuperacao_senha',
   ];
   const resultado = await query(
     `SELECT nome
