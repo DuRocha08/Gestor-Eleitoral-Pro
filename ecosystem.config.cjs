@@ -10,6 +10,7 @@ module.exports = {
     kill_timeout: 10000,
     env: {
       NODE_ENV: 'production',
+      ALLOW_PUBLIC_REGISTRATION: 'true',
     },
   }],
 };
