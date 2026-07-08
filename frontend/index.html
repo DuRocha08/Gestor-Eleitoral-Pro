@@ -6,8 +6,32 @@
     <meta name="theme-color" content="#0f172a" />
     <meta name="description" content="Plataforma privada de gestao eleitoral e acompanhamento de campanha." />
     <meta name="robots" content="noindex, nofollow, noarchive" />
-    <!-- A configuracao publica tambem instala a CSP com a origem exata da API. -->
-    <script src="%BASE_URL%api-config.js"></script>
+    <script>
+      (function configurarApiPublica() {
+        window.API_URL = '%VITE_API_URL%';
+
+        let origemApi = '';
+        try {
+          const url = new URL(window.API_URL);
+          const hostLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+          if ((url.protocol === 'https:' || (hostLocal && url.protocol === 'http:')) &&
+              !url.username && !url.password && url.pathname.endsWith('/api')) {
+            origemApi = url.origin;
+          }
+        } catch (_) {
+          // sem URL externa, fica restrito a mesma origem
+        }
+
+        const politica = document.createElement('meta');
+        politica.httpEquiv = 'Content-Security-Policy';
+        politica.content = "default-src 'self'; script-src 'self'; " +
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+          "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; " +
+          "connect-src 'self'" + (origemApi ? ' ' + origemApi : '') + "; " +
+          "object-src 'none'; base-uri 'self'; form-action 'self'";
+        document.head.appendChild(politica);
+      }());
+    </script>
     <title>Gestor Eleitoral</title>
     <link rel="icon" type="image/png" href="%BASE_URL%brand/gestor-eleitoral-marca.png" />
     <link rel="apple-touch-icon" href="%BASE_URL%brand/gestor-eleitoral-marca.png" />

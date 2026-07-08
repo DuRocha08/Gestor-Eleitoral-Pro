@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const BASE_GITHUB_PAGES = '/GESTOR-ELEITORAL/';
+const BASE_GITHUB_PAGES = '/Gestor-Eleitoral-Pro/';
 
 function pluginConfigPublica(urlApi) {
   return {
