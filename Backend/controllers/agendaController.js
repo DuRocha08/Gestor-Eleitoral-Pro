@@ -42,32 +42,32 @@ async function responsavelValido(campanhaId, usuarioId) {
 
 async function listar(req, res, next) {
   try {
-    const condicoes = ['campanha_id = $1'];
+    const condicoes = ['a.campanha_id = $1'];
     const params = [req.usuario.campanha_id];
     let i = 2;
 
     ['tipo', 'status', 'prioridade'].forEach(function(campo) {
       if (req.query[campo]) {
-        condicoes.push(`${campo} = $${i}`);
+        condicoes.push(`a.${campo} = $${i}`);
         params.push(req.query[campo]);
         i += 1;
       }
     });
 
     if (req.query.busca) {
-      condicoes.push(`(titulo ILIKE $${i} OR bairro ILIKE $${i} OR cidade ILIKE $${i})`);
+      condicoes.push(`(a.titulo ILIKE $${i} OR a.bairro ILIKE $${i} OR a.cidade ILIKE $${i})`);
       params.push('%' + req.query.busca + '%');
       i += 1;
     }
 
     if (req.query.inicio) {
-      condicoes.push(`data_inicio >= $${i}`);
+      condicoes.push(`a.data_inicio >= $${i}`);
       params.push(req.query.inicio);
       i += 1;
     }
 
     if (req.query.fim) {
-      condicoes.push(`data_inicio <= $${i}`);
+      condicoes.push(`a.data_inicio <= $${i}`);
       params.push(req.query.fim);
       i += 1;
     }
