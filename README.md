@@ -63,6 +63,7 @@ psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/007_har
 psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/008_garantir_colunas_autenticacao.sql
 psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/009_operacao_completa.sql
 psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/010_administrador_global.sql
+psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/011_modulos_cliente.sql
 psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/005_permissoes_gestor_app.sql
 ```
 ## Testes

@@ -20,6 +20,7 @@ const MIGRACOES = [
   { id: '008_garantir_colunas_autenticacao', arquivo: 'migrations/008_garantir_colunas_autenticacao.sql' },
   { id: '009_operacao_completa', arquivo: 'migrations/009_operacao_completa.sql' },
   { id: '010_administrador_global', arquivo: 'migrations/010_administrador_global.sql' },
+  { id: '011_modulos_cliente', arquivo: 'migrations/011_modulos_cliente.sql' },
 ];
 
 async function executar() {

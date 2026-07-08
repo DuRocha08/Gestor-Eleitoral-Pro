@@ -85,6 +85,7 @@ function validarId(req, res, next) {
 router.use(autenticar);
 
 router.get('/', listar);
+router.get('/import/:jobId', consultarStatusImport);
 router.get('/:id', validarId, buscarPorId);
 router.post('/', regrasEleitor, verificarValidacao, criar);
 router.put('/:id', validarId, regrasEleitor, verificarValidacao, atualizar);
@@ -97,6 +98,5 @@ router.post(
   upload.single('planilha'),
   importarPlanilha
 );
-router.get('/import/:jobId', consultarStatusImport);
 
 module.exports = router;

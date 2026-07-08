@@ -152,6 +152,11 @@ async function verificarEstruturaBasica() {
     'auditoria',
     'jobs_importacao',
     'tokens_recuperacao_senha',
+    'agenda_compromissos',
+    'pesquisa_questionarios',
+    'pesquisa_respostas',
+    'limites_gastos_campanha',
+    'plano_campanha_acoes',
   ];
   const resultado = await query(
     `SELECT nome

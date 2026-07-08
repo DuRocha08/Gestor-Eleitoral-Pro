@@ -8,8 +8,12 @@ import { MARCA_SISTEMA, NOME_SISTEMA } from '../constants/cargosPoliticos.js';
 const ITENS_MENU = [
   { rotulo: 'Painel', caminho: '/dashboard', niveis: ['admin', 'coordenador', 'operador', 'visualizador'] },
   { rotulo: 'Eleitores', caminho: '/eleitores', niveis: ['admin', 'coordenador', 'operador', 'visualizador'] },
+  { rotulo: 'Agenda', caminho: '/agenda', niveis: ['admin', 'coordenador', 'operador', 'visualizador'] },
+  { rotulo: 'Apoiadores', caminho: '/apoiadores', niveis: ['admin', 'coordenador', 'operador', 'visualizador'] },
   { rotulo: 'Financeiro', caminho: '/financeiro', niveis: ['admin', 'coordenador'] },
   { rotulo: 'Demandas', caminho: '/demandas', niveis: ['admin', 'coordenador', 'operador', 'visualizador'] },
+  { rotulo: 'Pesquisas', caminho: '/pesquisas', niveis: ['admin', 'coordenador', 'operador', 'visualizador'] },
+  { rotulo: 'Plano', caminho: '/plano-campanha', niveis: ['admin', 'coordenador', 'operador', 'visualizador'] },
   { rotulo: 'Integrações', caminho: '/integracoes', niveis: ['admin', 'coordenador', 'operador'] },
   { rotulo: 'Administração', caminho: '/admin', niveis: ['admin', 'coordenador'] },
   { rotulo: 'Segurança', caminho: '/seguranca', niveis: ['admin', 'coordenador', 'operador', 'visualizador'] },

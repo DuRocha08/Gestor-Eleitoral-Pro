@@ -16,8 +16,13 @@ const Login = lazy(() => import('./pages/Login.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
 const VotersList = lazy(() => import('./pages/VotersList.jsx'));
+const Agenda = lazy(() => import('./pages/Agenda.jsx'));
+const Apoiadores = lazy(() => import('./pages/Apoiadores.jsx'));
 const Financeiro = lazy(() => import('./pages/Financeiro.jsx'));
 const Demandas = lazy(() => import('./pages/Demandas.jsx'));
+const Pesquisas = lazy(() => import('./pages/Pesquisas.jsx'));
+const PlanoCampanha = lazy(() => import('./pages/PlanoCampanha.jsx'));
+const PesquisaPublica = lazy(() => import('./pages/PesquisaPublica.jsx'));
 const Integracoes = lazy(() => import('./pages/Integracoes.jsx'));
 const Admin = lazy(() => import('./pages/Admin.jsx'));
 const Security = lazy(() => import('./pages/Security.jsx'));
@@ -30,8 +35,12 @@ const TITULOS = {
   '/register': 'Criar conta',
   '/dashboard': 'Painel',
   '/eleitores': 'Eleitores',
+  '/agenda': 'Agenda',
+  '/apoiadores': 'Apoiadores',
   '/financeiro': 'Financeiro',
   '/demandas': 'Demandas',
+  '/pesquisas': 'Pesquisas',
+  '/plano-campanha': 'Plano de Campanha',
   '/integracoes': 'Integrações',
   '/admin': 'Administração',
   '/seguranca': 'Segurança',
@@ -134,16 +143,21 @@ function App() {
             <Route path="/register" element={<RotaPublica><Register /></RotaPublica>} />
             <Route path="/forgot-password" element={<RotaPublica><ForgotPassword /></RotaPublica>} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/pesquisa-publica/:slug" element={<PesquisaPublica />} />
             <Route element={<RotaProtegida />}>
               <Route element={<LayoutPrincipal />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/eleitores" element={<VotersList />} />
+                <Route path="/agenda" element={<Agenda />} />
+                <Route path="/apoiadores" element={<Apoiadores />} />
                 <Route path="/financeiro" element={
                   <RotaPorNivel niveis={['admin', 'coordenador']}>
                     <Financeiro />
                   </RotaPorNivel>
                 } />
                 <Route path="/demandas" element={<Demandas />} />
+                <Route path="/pesquisas" element={<Pesquisas />} />
+                <Route path="/plano-campanha" element={<PlanoCampanha />} />
                 <Route path="/integracoes" element={<RotaPorNivel niveis={['admin','coordenador','operador']}><Integracoes /></RotaPorNivel>} />
                 <Route path="/seguranca" element={<Security />} />
                 <Route path="/admin" element={<RotaPorNivel niveis={['admin','coordenador']}><Admin /></RotaPorNivel>} />
