@@ -1,6 +1,10 @@
 export const CHAVE_TOKEN   = 'gestor_eleitoral_token';
 export const CHAVE_USUARIO = 'gestor_eleitoral_usuario';
 
+function lerArmazenamento(chave) {
+  return localStorage.getItem(chave) || sessionStorage.getItem(chave);
+}
+
 function decodificarPayload(token) {
   const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
   const completo = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
@@ -8,7 +12,7 @@ function decodificarPayload(token) {
 }
 
 export function obterToken() {
-  const token = sessionStorage.getItem(CHAVE_TOKEN);
+  const token = lerArmazenamento(CHAVE_TOKEN);
   if (!token) return null;
 
   const partes = token.split('.');
@@ -36,15 +40,15 @@ export function estaAutenticado() {
 }
 
 export function salvarSessao(token, usuario) {
+  localStorage.setItem(CHAVE_TOKEN, token);
+  localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuario));
   sessionStorage.setItem(CHAVE_TOKEN, token);
   sessionStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuario));
-  localStorage.removeItem(CHAVE_TOKEN);
-  localStorage.removeItem(CHAVE_USUARIO);
 }
 
 export function obterUsuario() {
   try {
-    const valor = sessionStorage.getItem(CHAVE_USUARIO);
+    const valor = lerArmazenamento(CHAVE_USUARIO);
     return valor ? JSON.parse(valor) : null;
   } catch (_) {
     limparSessao();
