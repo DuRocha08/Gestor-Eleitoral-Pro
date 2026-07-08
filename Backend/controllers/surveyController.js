@@ -92,7 +92,28 @@ async function salvarResposta(req, res, next) {
 async function salvarRespostaComDados(req, res, next, questionario, publico) {
   try {
     const idade = req.body.idade ? Number(req.body.idade) : null;
-    if (idade && (idade < 16 || idade > 120)) return res.status(400).json({ erro: 'Idade invalida.' });
+    const probabilidade = req.body.probabilidade_voto === undefined || req.body.probabilidade_voto === ''
+      ? null
+      : Number(req.body.probabilidade_voto);
+    const zona = req.body.zona_eleitoral === undefined || req.body.zona_eleitoral === ''
+      ? null
+      : Number(req.body.zona_eleitoral);
+    const secao = req.body.secao_eleitoral === undefined || req.body.secao_eleitoral === ''
+      ? null
+      : Number(req.body.secao_eleitoral);
+
+    if (idade !== null && (!Number.isInteger(idade) || idade < 16 || idade > 120)) {
+      return res.status(400).json({ erro: 'Idade invalida.' });
+    }
+    if (probabilidade !== null && (!Number.isInteger(probabilidade) || probabilidade < 0 || probabilidade > 10)) {
+      return res.status(400).json({ erro: 'Probabilidade de voto invalida.' });
+    }
+    if (zona !== null && (!Number.isInteger(zona) || zona < 1 || zona > 9999)) {
+      return res.status(400).json({ erro: 'Zona eleitoral invalida.' });
+    }
+    if (secao !== null && (!Number.isInteger(secao) || secao < 1 || secao > 9999)) {
+      return res.status(400).json({ erro: 'Secao eleitoral invalida.' });
+    }
 
     const resultado = await query(
       `INSERT INTO pesquisa_respostas (
@@ -114,13 +135,13 @@ async function salvarRespostaComDados(req, res, next, questionario, publico) {
         limparTexto(req.body.escolaridade, 100), limparTexto(req.body.religiao, 100),
         limparTexto(req.body.ocupacao, 150), limparTexto(req.body.bairro, 150),
         limparTexto(req.body.cidade, 150), limparTexto(req.body.regiao_administrativa, 150),
-        req.body.zona_eleitoral || null, req.body.secao_eleitoral || null,
+        zona, secao,
         limparTexto(req.body.intencao_voto), limparTexto(req.body.segunda_opcao),
         limparTexto(req.body.rejeicao), limparTexto(req.body.avaliacao_governo, 100),
         limparTexto(req.body.problemas_prioritarios, 2000),
         req.body.conhece_candidato === undefined ? null : Boolean(req.body.conhece_candidato),
         req.body.interesse_voluntario === undefined ? null : Boolean(req.body.interesse_voluntario),
-        req.body.probabilidade_voto === undefined ? null : Number(req.body.probabilidade_voto),
+        probabilidade,
         limparTexto(req.body.cargo_pesquisado, 100) || questionario.cargo,
         limparTexto(req.body.origem_resposta, 100) || (publico ? 'link_publico' : 'interno'),
         limparTexto(req.body.pagina_parceira),

@@ -10,11 +10,12 @@ const {
   listarOrigens,
 } = require('../controllers/surveyController');
 const { autenticar } = require('../middlewares/authMiddleware');
+const { limiterCadastro } = require('../middlewares/rateLimiter');
 
 const router = Router();
 
 router.get('/public/:slug', buscarQuestionarioPublico);
-router.post('/public/:slug/respostas', salvarRespostaPublica);
+router.post('/public/:slug/respostas', limiterCadastro, salvarRespostaPublica);
 
 router.use(autenticar);
 router.get('/questionarios', listarQuestionarios);

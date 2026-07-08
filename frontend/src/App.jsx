@@ -125,7 +125,7 @@ function LayoutPrincipal() {
     <div className="min-h-screen bg-slate-50">
       <a href="#conteudo-principal" className="skip-link">Ir para o conteúdo principal</a>
       <Navbar usuario={usuario} />
-      <main id="conteudo-principal" tabIndex={-1} className="min-h-screen overflow-auto lg:ml-60">
+      <main id="conteudo-principal" tabIndex={-1} className="min-h-screen overflow-auto pt-14 lg:ml-60 lg:pt-0">
         <Outlet />
       </main>
     </div>

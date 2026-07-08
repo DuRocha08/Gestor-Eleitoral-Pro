@@ -21,14 +21,20 @@ export default function Agenda() {
   const [erro, setErro] = useState('');
   const [aberto, setAberto] = useState(false);
   const [filtro, setFiltro] = useState('');
+  const [carregando, setCarregando] = useState(true);
 
   const carregar = useCallback(async function() {
     try {
-      const qs = filtro ? '?status=' + filtro : '';
+      setCarregando(true);
+      const qs = filtro ? '?status=' + encodeURIComponent(filtro) : '';
       const resp = await apiRequest('/agenda' + qs);
       setDados(resp.dados || []);
       setErro('');
-    } catch (e) { setErro(e.message); }
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setCarregando(false);
+    }
   }, [filtro]);
 
   useEffect(function() { carregar(); }, [carregar]);
@@ -52,13 +58,13 @@ export default function Agenda() {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <header className="flex justify-between gap-4 mb-6">
+      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <p className="section-eyebrow mb-1">Agenda</p>
           <h1 className="page-title">Compromissos da campanha</h1>
           <p className="page-subtitle">Reunioes, visitas, eventos e lembretes.</p>
         </div>
-        {podeEditar && <button className="btn-primary" onClick={() => setAberto(!aberto)}>Novo compromisso</button>}
+        {podeEditar && <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => setAberto(!aberto)}>Novo compromisso</button>}
       </header>
 
       {erro && <AlertBox tipo="erro">{erro}</AlertBox>}
@@ -78,9 +84,9 @@ export default function Agenda() {
         </form>
       )}
 
-      <div className="card p-4 mb-4 max-w-xs"><label className="label">Status</label><select className="input" value={filtro} onChange={e => setFiltro(e.target.value)}><option value="">Todos</option><option value="agendado">Agendado</option><option value="confirmado">Confirmado</option><option value="realizado">Realizado</option><option value="cancelado">Cancelado</option></select></div>
+      <div className="card p-4 mb-4 max-w-sm"><label className="label">Filtrar por status</label><select className="input" value={filtro} onChange={e => setFiltro(e.target.value)}><option value="">Todos</option><option value="agendado">Agendado</option><option value="confirmado">Confirmado</option><option value="realizado">Realizado</option><option value="cancelado">Cancelado</option></select></div>
 
-      <div className="card overflow-x-auto"><table className="gov-table"><thead><tr><th>Titulo</th><th>Data</th><th>Tipo</th><th>Local</th><th>Prioridade</th><th>Status</th></tr></thead><tbody>{dados.map(item => <tr key={item.id}><td><strong>{item.titulo}</strong><div className="text-xs text-slate-400">{item.observacoes}</div></td><td>{dataLocal(item.data_inicio)}</td><td>{item.tipo}</td><td>{item.local || item.bairro || '-'}</td><td>{item.prioridade}</td><td>{podeEditar ? <select className="input min-w-36" value={item.status} onChange={e => alterarStatus(item.id, e.target.value)}><option value="agendado">Agendado</option><option value="confirmado">Confirmado</option><option value="realizado">Realizado</option><option value="cancelado">Cancelado</option></select> : item.status}</td></tr>)}{!dados.length && <tr><td colSpan="6" className="text-center py-10 text-slate-400">Nenhum compromisso cadastrado.</td></tr>}</tbody></table></div>
+      <div className="card overflow-x-auto"><table className="gov-table"><thead><tr><th>Titulo</th><th>Data</th><th>Tipo</th><th>Local</th><th>Prioridade</th><th>Status</th></tr></thead><tbody>{carregando ? <tr><td colSpan="6" className="text-center py-10 text-slate-400">Carregando agenda...</td></tr> : dados.map(item => <tr key={item.id}><td><strong>{item.titulo}</strong><div className="text-xs text-slate-400">{item.observacoes}</div></td><td>{dataLocal(item.data_inicio)}</td><td>{item.tipo}</td><td>{item.local || item.bairro || '-'}</td><td>{item.prioridade}</td><td>{podeEditar ? <select className="input min-w-36" value={item.status} onChange={e => alterarStatus(item.id, e.target.value)}><option value="agendado">Agendado</option><option value="confirmado">Confirmado</option><option value="realizado">Realizado</option><option value="cancelado">Cancelado</option></select> : item.status}</td></tr>)}{!carregando && !dados.length && <tr><td colSpan="6" className="text-center py-10 text-slate-400">Nenhum compromisso cadastrado.</td></tr>}</tbody></table></div>
     </div>
   );
 }

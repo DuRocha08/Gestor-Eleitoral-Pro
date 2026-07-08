@@ -3,6 +3,20 @@ const { limparTexto, uuidValido } = require('../utils/validacao');
 
 const STATUS = ['pendente', 'em_andamento', 'concluida', 'atrasada', 'cancelada'];
 
+function dataValida(valor) {
+  return !valor || /^\d{4}-\d{2}-\d{2}$/.test(valor);
+}
+
+async function responsavelValido(campanhaId, usuarioId) {
+  if (!usuarioId) return true;
+  if (!uuidValido(usuarioId)) return false;
+  const resultado = await query(
+    'SELECT id FROM usuarios WHERE id = $1 AND campanha_id = $2 AND ativo = true',
+    [usuarioId, campanhaId]
+  );
+  return resultado.rowCount > 0;
+}
+
 async function listar(req, res, next) {
   try {
     const resultado = await query(
@@ -32,9 +46,16 @@ async function criar(req, res, next) {
     const titulo = limparTexto(req.body.titulo);
     const status = req.body.status || 'pendente';
     const progresso = Number(req.body.progresso || 0);
+    const responsavelId = req.body.responsavel_id || null;
+    const dataInicio = limparTexto(req.body.data_inicio, 10);
+    const dataPrazo = limparTexto(req.body.data_prazo, 10);
     if (!titulo) return res.status(400).json({ erro: 'Titulo e obrigatorio.' });
     if (!STATUS.includes(status)) return res.status(400).json({ erro: 'Status invalido.' });
-    if (progresso < 0 || progresso > 100) return res.status(400).json({ erro: 'Progresso invalido.' });
+    if (!Number.isFinite(progresso) || progresso < 0 || progresso > 100) return res.status(400).json({ erro: 'Progresso invalido.' });
+    if (!dataValida(dataInicio) || !dataValida(dataPrazo)) return res.status(400).json({ erro: 'Data invalida.' });
+    if (!(await responsavelValido(req.usuario.campanha_id, responsavelId))) {
+      return res.status(403).json({ erro: 'Responsavel nao pertence a esta campanha.' });
+    }
 
     const resultado = await query(
       `INSERT INTO plano_campanha_acoes
@@ -43,9 +64,9 @@ async function criar(req, res, next) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [
         req.usuario.campanha_id, req.usuario.id, limparTexto(req.body.fase, 100),
-        titulo, limparTexto(req.body.descricao, 2000), req.body.responsavel_id || null,
-        limparTexto(req.body.responsavel_nome), limparTexto(req.body.data_inicio, 10),
-        limparTexto(req.body.data_prazo, 10), status, progresso,
+        titulo, limparTexto(req.body.descricao, 2000), responsavelId,
+        limparTexto(req.body.responsavel_nome), dataInicio,
+        dataPrazo, status, progresso,
         limparTexto(req.body.observacoes, 2000),
       ]
     );
@@ -61,21 +82,29 @@ async function atualizar(req, res, next) {
     if (!uuidValido(req.params.id)) return res.status(400).json({ erro: 'Identificador invalido.' });
     const status = req.body.status || null;
     const progresso = req.body.progresso === undefined ? null : Number(req.body.progresso);
+    const responsavelId = req.body.responsavel_id === undefined ? null : req.body.responsavel_id || null;
+    const dataInicio = limparTexto(req.body.data_inicio, 10);
+    const dataPrazo = limparTexto(req.body.data_prazo, 10);
     if (status && !STATUS.includes(status)) return res.status(400).json({ erro: 'Status invalido.' });
-    if (progresso !== null && (progresso < 0 || progresso > 100)) return res.status(400).json({ erro: 'Progresso invalido.' });
+    if (progresso !== null && (!Number.isFinite(progresso) || progresso < 0 || progresso > 100)) return res.status(400).json({ erro: 'Progresso invalido.' });
+    if (!dataValida(dataInicio) || !dataValida(dataPrazo)) return res.status(400).json({ erro: 'Data invalida.' });
+    if (req.body.responsavel_id !== undefined && !(await responsavelValido(req.usuario.campanha_id, responsavelId))) {
+      return res.status(403).json({ erro: 'Responsavel nao pertence a esta campanha.' });
+    }
 
     const resultado = await query(
       `UPDATE plano_campanha_acoes SET
        fase=COALESCE($3,fase), titulo=COALESCE($4,titulo), descricao=COALESCE($5,descricao),
-       responsavel_nome=COALESCE($6,responsavel_nome), data_inicio=COALESCE($7,data_inicio),
-       data_prazo=COALESCE($8,data_prazo), status=COALESCE($9,status),
-       progresso=COALESCE($10,progresso), observacoes=COALESCE($11,observacoes)
+       responsavel_id=COALESCE($6,responsavel_id), responsavel_nome=COALESCE($7,responsavel_nome),
+       data_inicio=COALESCE($8,data_inicio), data_prazo=COALESCE($9,data_prazo),
+       status=COALESCE($10,status), progresso=COALESCE($11,progresso),
+       observacoes=COALESCE($12,observacoes)
        WHERE id=$1 AND campanha_id=$2 RETURNING *`,
       [
         req.params.id, req.usuario.campanha_id, limparTexto(req.body.fase, 100),
         limparTexto(req.body.titulo), limparTexto(req.body.descricao, 2000),
-        limparTexto(req.body.responsavel_nome), limparTexto(req.body.data_inicio, 10),
-        limparTexto(req.body.data_prazo, 10), status, progresso,
+        responsavelId, limparTexto(req.body.responsavel_nome), dataInicio,
+        dataPrazo, status, progresso,
         limparTexto(req.body.observacoes, 2000),
       ]
     );

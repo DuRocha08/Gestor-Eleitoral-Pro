@@ -39,8 +39,10 @@ async function supervisorValido(supervisorId, campanhaId) {
 function validar(dados) {
   if (!dados.nome) return 'Nome e obrigatorio.';
   if (dados.email && !emailValido(dados.email)) return 'E-mail invalido.';
-  if (dados.meta_cadastros < 0 || dados.meta_votos < 0 || dados.votos_estimados < 0) {
-    return 'Metas e votos estimados nao podem ser negativos.';
+  if (!Number.isFinite(dados.meta_cadastros) || !Number.isFinite(dados.meta_votos) ||
+      !Number.isFinite(dados.votos_estimados) ||
+      dados.meta_cadastros < 0 || dados.meta_votos < 0 || dados.votos_estimados < 0) {
+    return 'Metas e votos estimados devem ser numeros positivos.';
   }
   if (!['baixo', 'medio', 'alto'].includes(dados.nivel_influencia)) return 'Nivel de influencia invalido.';
   if (!['ativo', 'inativo', 'pendente'].includes(dados.status)) return 'Status invalido.';
@@ -170,7 +172,8 @@ async function atualizar(req, res, next) {
     }
     if (!uuidValido(req.params.id)) return res.status(400).json({ erro: 'Identificador invalido.' });
     const dados = montarDados(req.body);
-    if (dados.email && !emailValido(dados.email)) return res.status(400).json({ erro: 'E-mail invalido.' });
+    const erro = validar({ ...dados, nome: dados.nome || 'ok' });
+    if (erro) return res.status(400).json({ erro });
     if (!(await supervisorValido(dados.supervisor_id, req.usuario.campanha_id))) {
       return res.status(403).json({ erro: 'Lideranca superior nao pertence a esta campanha.' });
     }
