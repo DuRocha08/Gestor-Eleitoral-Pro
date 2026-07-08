@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const BASE_GITHUB_PAGES = '/Gestor-Eleitoral-Pro/';
+const API_GITHUB_PAGES = 'https://api.eleitoralpro.online/api';
 
 function pluginConfigPublica(urlApi) {
   return {
@@ -47,7 +48,7 @@ export default defineConfig(({ mode }) => {
 
   let urlApi = env.VITE_API_URL || '';
   if (isGitHubPages && !urlApi) {
-    urlApi = lerUrlApiDoArquivo();
+    urlApi = lerUrlApiDoArquivo() || API_GITHUB_PAGES;
   }
 
   return {

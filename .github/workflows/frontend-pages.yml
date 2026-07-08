@@ -37,7 +37,7 @@ jobs:
       - name: Gerar frontend
         run: npm run build:ghpages --prefix frontend
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.eleitoralpro.online/api' }}
 
       - name: Configurar Pages
         uses: actions/configure-pages@v5
