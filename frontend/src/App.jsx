@@ -119,6 +119,11 @@ function RotaAdministradorGlobal({ children }) {
   return usuario?.administrador_global ? children : <Navigate to="/dashboard" replace />;
 }
 
+function AdminOuPlataforma() {
+  const usuario = obterUsuario();
+  return usuario?.administrador_global ? <PlatformAdmin /> : <Admin />;
+}
+
 function LayoutPrincipal() {
   const usuario = obterUsuario();
   return (
@@ -160,7 +165,7 @@ function App() {
                 <Route path="/plano-campanha" element={<PlanoCampanha />} />
                 <Route path="/integracoes" element={<RotaPorNivel niveis={['admin','coordenador','operador']}><Integracoes /></RotaPorNivel>} />
                 <Route path="/seguranca" element={<Security />} />
-                <Route path="/admin" element={<RotaPorNivel niveis={['admin','coordenador']}><Admin /></RotaPorNivel>} />
+                <Route path="/admin" element={<RotaPorNivel niveis={['admin','coordenador']}><AdminOuPlataforma /></RotaPorNivel>} />
                 <Route path="/plataforma" element={<RotaAdministradorGlobal><PlatformAdmin /></RotaAdministradorGlobal>} />
               </Route>
             </Route>

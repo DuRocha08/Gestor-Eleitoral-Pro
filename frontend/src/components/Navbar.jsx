@@ -40,6 +40,11 @@ function Navbar({ usuario }) {
 
   const itensVisiveis = ITENS_MENU.filter(function (item) {
     return item.niveis.includes(usuario?.nivel);
+  }).map(function(item) {
+    if (item.caminho === '/admin' && usuario?.administrador_global) {
+      return { ...item, rotulo: 'Administração global' };
+    }
+    return item;
   });
   if (usuario?.administrador_global) {
     itensVisiveis.push({ rotulo: 'Plataforma', caminho: '/plataforma', niveis: ['admin'] });
