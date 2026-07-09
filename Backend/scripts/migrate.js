@@ -70,5 +70,11 @@ async function executar() {
 
 executar().catch(function(erro) {
   console.error('[MIGRATION] falha:', erroBancoParaLog(erro));
+  if (erro && erro.code === '42501') {
+    console.error(
+      '[MIGRATION] usuario do banco sem permissao para migrar. ' +
+      'Use DATABASE_MIGRATION_URL com um usuario dono do schema, ou rode as migrations manualmente como postgres.'
+    );
+  }
   process.exitCode = 1;
 });

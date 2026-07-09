@@ -14,7 +14,7 @@ function perguntasValidas(perguntas) {
 async function listarQuestionarios(req, res, next) {
   try {
     const resultado = await query(
-      `SELECT id, titulo, descricao, perguntas, ativo, created_at, updated_at
+      `SELECT id, titulo, descricao, slug, cargo, perguntas, ativo, created_at, updated_at
        FROM pesquisa_questionarios
        WHERE campanha_id = $1
        ORDER BY ativo DESC, created_at DESC`,
@@ -217,6 +217,22 @@ async function estatisticas(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function listarRespostas(req, res, next) {
+  try {
+    if (!uuidValido(req.params.id)) return res.status(400).json({ erro: 'Identificador invalido.' });
+    const resultado = await query(
+      `SELECT id, entrevistado_nome, anonimo, idade, genero, bairro, cidade, regiao_administrativa,
+              intencao_voto, rejeicao, origem_resposta, respostas, entrevistado_em, created_at
+       FROM pesquisa_respostas
+       WHERE questionario_id=$1 AND campanha_id=$2
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [req.params.id, req.usuario.campanha_id]
+    );
+    return res.json({ dados: resultado.rows });
+  } catch (err) { next(err); }
+}
+
 async function criarOrigem(req, res, next) {
   try {
     if (!uuidValido(req.params.id)) return res.status(400).json({ erro: 'Identificador invalido.' });
@@ -262,6 +278,7 @@ module.exports = {
   salvarRespostaPublica,
   salvarResposta,
   estatisticas,
+  listarRespostas,
   criarOrigem,
   listarOrigens,
   AVISO_LEGAL,

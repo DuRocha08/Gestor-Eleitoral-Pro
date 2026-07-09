@@ -127,16 +127,17 @@ function carregarOrigensPermitidas() {
 
   configuradas.forEach(function(origem) {
     let url;
+    const origemLimpa = origem.replace(/\/+$/, '');
     try {
-      url = new URL(origem);
+      url = new URL(origemLimpa);
     } catch (_) {
       throw new Error('CORS_ORIGINS contem uma origem invalida.');
     }
-    if (url.origin !== origem || url.username || url.password ||
+    if (url.origin !== origemLimpa || url.username || url.password ||
         (process.env.NODE_ENV === 'production' && url.protocol !== 'https:')) {
       throw new Error('CORS_ORIGINS deve conter somente origens HTTPS, sem caminho ou credenciais.');
     }
-    origens.add(url.origin);
+    origens.add(origemLimpa);
   });
   return origens;
 }
@@ -415,7 +416,7 @@ async function iniciarServidor() {
   const tabelasAusentes = await verificarEstruturaBasica();
   if (tabelasAusentes.length > 0) {
     console.error('[DB] tabelas ausentes:', tabelasAusentes.join(', '));
-    console.error('[DB] rode as migrations antes de iniciar a API em producao.');
+    console.error('[DB] rode as migrations antes de iniciar a API.');
     process.exit(1);
   }
 

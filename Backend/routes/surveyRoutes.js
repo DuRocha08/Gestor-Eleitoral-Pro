@@ -6,6 +6,7 @@ const {
   salvarRespostaPublica,
   salvarResposta,
   estatisticas,
+  listarRespostas,
   criarOrigem,
   listarOrigens,
 } = require('../controllers/surveyController');
@@ -22,6 +23,7 @@ router.get('/questionarios', listarQuestionarios);
 router.post('/questionarios', criarQuestionario);
 router.post('/questionarios/:id/respostas', salvarResposta);
 router.get('/questionarios/:id/estatisticas', estatisticas);
+router.get('/questionarios/:id/respostas', listarRespostas);
 router.get('/questionarios/:id/origens', listarOrigens);
 router.post('/questionarios/:id/origens', criarOrigem);
 

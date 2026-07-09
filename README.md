@@ -66,13 +66,19 @@ psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/010_adm
 psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/011_modulos_cliente.sql
 psql -h localhost -U postgres -d gestor_eleitoral -f database/migrations/005_permissoes_gestor_app.sql
 ```
-## Testes
+## Verificacoes
 
-``bash
-npm test --prefix Backend
-npm test --prefix frontend
-npm run lint --prefix Backend
-npm run lint --prefix frontend
-npm run test:e2e --prefix frontend
+O projeto ainda nao possui suite automatica de testes ou lint configurado nos
+`package.json`. Para uma checagem basica antes de publicar, use:
+
+```bash
+npm audit --omit=dev --prefix Backend
+npm audit --omit=dev --prefix frontend
 npm run build --prefix frontend
-``
+```
+
+Para validar sintaxe dos arquivos do backend:
+
+```powershell
+rg --files Backend -g "*.js" -g "!node_modules/**" | ForEach-Object { node --check $_ }
+```
