@@ -4,10 +4,66 @@ const { limparTexto, uuidValido } = require('../utils/validacao');
 const TIPOS_PERGUNTA = ['unica', 'multipla', 'sim_nao', 'escala', 'numero', 'texto'];
 const AVISO_LEGAL = 'Esta consulta popular nao possui registro oficial como pesquisa eleitoral e nao deve ser divulgada como pesquisa eleitoral registrada. Os resultados servem apenas para analise interna de aceitacao e percepcao popular.';
 
-function perguntasValidas(perguntas) {
-  if (!Array.isArray(perguntas)) return false;
-  return perguntas.every(function(p) {
-    return p && limparTexto(p.texto, 255) && TIPOS_PERGUNTA.includes(p.tipo);
+function limparPerguntas(perguntas) {
+  if (!Array.isArray(perguntas)) {
+    return { erro: 'A lista de perguntas e obrigatoria.' };
+  }
+  if (perguntas.length === 0) {
+    return { erro: 'Adicione pelo menos uma pergunta.' };
+  }
+
+  const limpas = [];
+  for (let i = 0; i < perguntas.length; i += 1) {
+    const p = perguntas[i] || {};
+    const texto = limparTexto(p.texto, 255);
+    const tipo = limparTexto(p.tipo, 30);
+    if (!texto) return { erro: 'A pergunta ' + (i + 1) + ' esta sem texto.' };
+    if (!TIPOS_PERGUNTA.includes(tipo)) {
+      return { erro: 'A pergunta ' + (i + 1) + ' possui tipo invalido.', tipos_validos: TIPOS_PERGUNTA };
+    }
+
+    const opcoes = Array.isArray(p.opcoes)
+      ? p.opcoes.map(opcao => limparTexto(opcao, 150)).filter(Boolean)
+      : [];
+    if ((tipo === 'unica' || tipo === 'multipla') && opcoes.length < 2) {
+      return { erro: 'A pergunta ' + (i + 1) + ' precisa ter pelo menos duas opcoes.' };
+    }
+    if (Array.isArray(p.opcoes) && opcoes.length !== p.opcoes.length) {
+      return { erro: 'A pergunta ' + (i + 1) + ' possui opcao vazia.' };
+    }
+
+    limpas.push({ texto, tipo, opcoes, ordem: i + 1 });
+  }
+  return { perguntas: limpas };
+}
+
+function podeAlterarQuestionario(usuario) {
+  return usuario.nivel !== 'visualizador';
+}
+
+async function buscarQuestionarioDaCampanha(id, campanhaId) {
+  if (!uuidValido(id)) return null;
+  const resultado = await query(
+    'SELECT id FROM pesquisa_questionarios WHERE id=$1 AND campanha_id=$2',
+    [id, campanhaId]
+  );
+  return resultado.rows[0] || null;
+}
+
+function montarDadosQuestionario(body) {
+  return {
+    titulo: limparTexto(body.titulo),
+    descricao: limparTexto(body.descricao, 2000),
+    cargo: limparTexto(body.cargo, 100),
+    permiteAnonimo: body.permite_anonimo !== false,
+    validacaoPerguntas: limparPerguntas(body.perguntas || []),
+  };
+}
+
+function responderErroPerguntas(res, validacao) {
+  return res.status(400).json({
+    erro: validacao.erro || 'Perguntas invalidas.',
+    tipos_validos: validacao.tipos_validos || TIPOS_PERGUNTA,
   });
 }
 
@@ -26,27 +82,66 @@ async function listarQuestionarios(req, res, next) {
 
 async function criarQuestionario(req, res, next) {
   try {
-    if (req.usuario.nivel === 'visualizador') {
+    if (!podeAlterarQuestionario(req.usuario)) {
       return res.status(403).json({ erro: 'Visualizadores nao podem criar questionarios.' });
     }
-    const titulo = limparTexto(req.body.titulo);
-    const descricao = limparTexto(req.body.descricao, 2000);
-    const cargo = limparTexto(req.body.cargo, 100);
-    const perguntas = req.body.perguntas || [];
+    const dados = montarDadosQuestionario(req.body);
+    const { titulo, descricao, cargo, permiteAnonimo, validacaoPerguntas } = dados;
     if (!titulo) return res.status(400).json({ erro: 'Titulo e obrigatorio.' });
-    if (!perguntasValidas(perguntas)) {
-      return res.status(400).json({ erro: 'Perguntas invalidas.', tipos_validos: TIPOS_PERGUNTA });
-    }
+    if (validacaoPerguntas.erro) return responderErroPerguntas(res, validacaoPerguntas);
 
     const resultado = await query(
       `INSERT INTO pesquisa_questionarios (campanha_id, criado_por, titulo, descricao, cargo, perguntas, permite_anonimo)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [
         req.usuario.campanha_id, req.usuario.id, titulo, descricao, cargo,
-        JSON.stringify(perguntas), req.body.permite_anonimo !== false,
+        JSON.stringify(validacaoPerguntas.perguntas), permiteAnonimo,
       ]
     );
     return res.status(201).json({ mensagem: 'Questionario criado.', questionario: resultado.rows[0] });
+  } catch (err) { next(err); }
+}
+
+async function atualizarQuestionario(req, res, next) {
+  try {
+    if (!podeAlterarQuestionario(req.usuario)) {
+      return res.status(403).json({ erro: 'Visualizadores nao podem editar questionarios.' });
+    }
+    const existente = await buscarQuestionarioDaCampanha(req.params.id, req.usuario.campanha_id);
+    if (!existente) return res.status(404).json({ erro: 'Questionario nao encontrado.' });
+
+    const dados = montarDadosQuestionario(req.body);
+    const { titulo, descricao, cargo, permiteAnonimo, validacaoPerguntas } = dados;
+    if (!titulo) return res.status(400).json({ erro: 'Titulo e obrigatorio.' });
+    if (validacaoPerguntas.erro) return responderErroPerguntas(res, validacaoPerguntas);
+
+    const resultado = await query(
+      `UPDATE pesquisa_questionarios
+       SET titulo=$3, descricao=$4, cargo=$5, perguntas=$6, permite_anonimo=$7, updated_at=NOW()
+       WHERE id=$1 AND campanha_id=$2
+       RETURNING *`,
+      [
+        req.params.id, req.usuario.campanha_id, titulo, descricao, cargo,
+        JSON.stringify(validacaoPerguntas.perguntas), permiteAnonimo,
+      ]
+    );
+    return res.json({ mensagem: 'Questionario atualizado.', questionario: resultado.rows[0] });
+  } catch (err) { next(err); }
+}
+
+async function excluirQuestionario(req, res, next) {
+  try {
+    if (!podeAlterarQuestionario(req.usuario)) {
+      return res.status(403).json({ erro: 'Visualizadores nao podem excluir questionarios.' });
+    }
+    const existente = await buscarQuestionarioDaCampanha(req.params.id, req.usuario.campanha_id);
+    if (!existente) return res.status(404).json({ erro: 'Questionario nao encontrado.' });
+
+    await query(
+      'DELETE FROM pesquisa_questionarios WHERE id=$1 AND campanha_id=$2',
+      [req.params.id, req.usuario.campanha_id]
+    );
+    return res.json({ mensagem: 'Questionario excluido.' });
   } catch (err) { next(err); }
 }
 
@@ -274,6 +369,8 @@ async function listarOrigens(req, res, next) {
 module.exports = {
   listarQuestionarios,
   criarQuestionario,
+  atualizarQuestionario,
+  excluirQuestionario,
   buscarQuestionarioPublico,
   salvarRespostaPublica,
   salvarResposta,

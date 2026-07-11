@@ -12,6 +12,14 @@ const TIPOS = [
   ['texto', 'Aberta'],
 ];
 
+const QUESTIONARIO_INICIAL = {
+  titulo: '',
+  descricao: '',
+  cargo: '',
+  permite_anonimo: true,
+  perguntas: [],
+};
+
 const RESPOSTA_INICIAL = {
   idade: '', genero: '', renda: '', escolaridade: '', religiao: '', ocupacao: '',
   bairro: '', cidade: '', regiao_administrativa: '', zona_eleitoral: '', secao_eleitoral: '',
@@ -24,31 +32,75 @@ function Barra({ nome, total, base }) {
   return <div className="mb-2"><div className="flex justify-between text-xs mb-1"><span>{nome}</span><span>{total} ({pct}%)</span></div><div className="h-2 bg-slate-100 rounded-sm overflow-hidden"><div className="h-full bg-indigo-600" style={{ width: pct + '%' }} /></div></div>;
 }
 
+function limparQuestionario(form) {
+  return {
+    titulo: String(form.titulo || '').trim(),
+    descricao: String(form.descricao || '').trim(),
+    cargo: String(form.cargo || '').trim(),
+    permite_anonimo: form.permite_anonimo !== false,
+    perguntas: (form.perguntas || []).map(function(p) {
+      const opcoes = Array.isArray(p.opcoes) ? p.opcoes : [];
+      return {
+        texto: String(p.texto || '').trim(),
+        tipo: p.tipo || 'texto',
+        opcoes: opcoes.map(opcao => String(opcao || '').trim()),
+      };
+    }),
+  };
+}
+
+function validarQuestionario(form) {
+  const dados = limparQuestionario(form);
+  if (!dados.titulo) return 'Informe o titulo do questionario.';
+  if (dados.perguntas.length === 0) return 'Adicione pelo menos uma pergunta.';
+  for (let i = 0; i < dados.perguntas.length; i += 1) {
+    const pergunta = dados.perguntas[i];
+    if (!pergunta.texto) return 'A pergunta ' + (i + 1) + ' esta sem texto.';
+    if (!TIPOS.some(t => t[0] === pergunta.tipo)) return 'A pergunta ' + (i + 1) + ' possui tipo invalido.';
+    if (pergunta.opcoes.some(opcao => !opcao)) return 'A pergunta ' + (i + 1) + ' possui opcao vazia.';
+    if ((pergunta.tipo === 'unica' || pergunta.tipo === 'multipla') && pergunta.opcoes.filter(Boolean).length < 2) {
+      return 'A pergunta ' + (i + 1) + ' precisa ter pelo menos duas opcoes.';
+    }
+  }
+  return '';
+}
+
 export default function Pesquisas() {
   const usuario = obterUsuario();
   const podeEditar = usuario?.nivel !== 'visualizador';
   const [questionarios, setQuestionarios] = useState([]);
   const [selecionado, setSelecionado] = useState('');
+  const [editandoId, setEditandoId] = useState('');
   const [estat, setEstat] = useState(null);
   const [origens, setOrigens] = useState([]);
   const [respostas, setRespostas] = useState([]);
   const [erro, setErro] = useState('');
+  const [sucesso, setSucesso] = useState('');
   const [copiado, setCopiado] = useState(false);
-  const [formQ, setFormQ] = useState({ titulo: '', descricao: '', perguntas: [{ texto: 'Intencao de voto', tipo: 'unica' }] });
+  const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [formQ, setFormQ] = useState(QUESTIONARIO_INICIAL);
   const [origem, setOrigem] = useState({ nome: '', tipo: 'pagina_local', ra: '', cidade: '' });
   const [resp, setResp] = useState(RESPOSTA_INICIAL);
 
-  const carregar = useCallback(async function() {
+  const carregar = useCallback(async function(proximoSelecionado) {
     try {
       const dados = await apiRequest('/surveys/questionarios');
-      setQuestionarios(dados.dados || []);
-      if (!selecionado && dados.dados?.[0]) setSelecionado(dados.dados[0].id);
+      const lista = dados.dados || [];
+      setQuestionarios(lista);
+      const alvo = proximoSelecionado || selecionado;
+      if (alvo && lista.some(q => q.id === alvo)) setSelecionado(alvo);
+      else setSelecionado(lista[0]?.id || '');
       setErro('');
     } catch (e) { setErro(e.message); }
   }, [selecionado]);
 
   const carregarEstat = useCallback(async function() {
-    if (!selecionado) return;
+    if (!selecionado) {
+      setEstat(null); setOrigem({ nome: '', tipo: 'pagina_local', ra: '', cidade: '' });
+      setOrigens([]); setRespostas([]);
+      return;
+    }
     try {
       const dados = await apiRequest('/surveys/questionarios/' + selecionado + '/estatisticas');
       setEstat(dados);
@@ -62,20 +114,97 @@ export default function Pesquisas() {
   useEffect(function() { carregar(); }, [carregar]);
   useEffect(function() { carregarEstat(); }, [carregarEstat]);
 
+  function novaPergunta(tipo = 'texto') {
+    return { texto: '', tipo, opcoes: tipo === 'unica' || tipo === 'multipla' ? ['', ''] : [] };
+  }
+
   function alterarPergunta(i, campo, valor) {
     const perguntas = formQ.perguntas.slice();
     perguntas[i] = { ...perguntas[i], [campo]: valor };
+    if (campo === 'tipo' && valor !== 'unica' && valor !== 'multipla') perguntas[i].opcoes = [];
+    if (campo === 'tipo' && (valor === 'unica' || valor === 'multipla') && perguntas[i].opcoes.length < 2) perguntas[i].opcoes = ['', ''];
     setFormQ({ ...formQ, perguntas });
   }
 
-  async function criarQuestionario(e) {
+  function alterarOpcoes(i, texto) {
+    alterarPergunta(i, 'opcoes', texto.split(',').map(opcao => opcao.trim()));
+  }
+
+  function removerPergunta(i) {
+    setFormQ({ ...formQ, perguntas: formQ.perguntas.filter((_, idx) => idx !== i) });
+  }
+
+  function moverPergunta(i, direcao) {
+    const destino = i + direcao;
+    if (destino < 0 || destino >= formQ.perguntas.length) return;
+    const perguntas = formQ.perguntas.slice();
+    const atual = perguntas[i];
+    perguntas[i] = perguntas[destino];
+    perguntas[destino] = atual;
+    setFormQ({ ...formQ, perguntas });
+  }
+
+  function novoQuestionario() {
+    setEditandoId('');
+    setFormQ({ ...QUESTIONARIO_INICIAL, perguntas: [novaPergunta('texto')] });
+    setSucesso('');
+    setErro('');
+  }
+
+  function editarSelecionado() {
+    const q = questionarios.find(item => item.id === selecionado);
+    if (!q) return;
+    setEditandoId(q.id);
+    setFormQ({
+      titulo: q.titulo || '',
+      descricao: q.descricao || '',
+      cargo: q.cargo || '',
+      permite_anonimo: q.permite_anonimo !== false,
+      perguntas: (q.perguntas || []).map(p => ({
+        texto: p.texto || '',
+        tipo: p.tipo || 'texto',
+        opcoes: Array.isArray(p.opcoes) ? p.opcoes : [],
+      })),
+    });
+    setSucesso('');
+    setErro('');
+  }
+
+  async function salvarQuestionario(e) {
     e.preventDefault();
+    const erroValidacao = validarQuestionario(formQ);
+    if (erroValidacao) { setErro(erroValidacao); return; }
+    setSalvando(true);
+    setErro('');
+    setSucesso('');
     try {
-      const criado = await apiPost('/surveys/questionarios', formQ);
-      setSelecionado(criado.questionario.id);
-      setFormQ({ titulo: '', descricao: '', perguntas: [{ texto: 'Intencao de voto', tipo: 'unica' }] });
-      carregar();
+      const dados = limparQuestionario(formQ);
+      const resposta = editandoId
+        ? await apiRequest('/surveys/questionarios/' + editandoId, { method: 'PUT', body: JSON.stringify(dados) })
+        : await apiPost('/surveys/questionarios', dados);
+      const id = resposta.questionario.id;
+      setSelecionado(id);
+      setEditandoId(id);
+      setSucesso(editandoId ? 'Questionario atualizado.' : 'Questionario criado.');
+      await carregar(id);
     } catch (err) { setErro(err.message); }
+    finally { setSalvando(false); }
+  }
+
+  async function excluirQuestionario() {
+    const q = questionarios.find(item => item.id === selecionado);
+    if (!q || !window.confirm('Excluir o questionario "' + q.titulo + '"? As respostas vinculadas tambem serao apagadas.')) return;
+    setExcluindo(true);
+    setErro('');
+    setSucesso('');
+    try {
+      await apiRequest('/surveys/questionarios/' + q.id, { method: 'DELETE' });
+      setEditandoId('');
+      setFormQ(QUESTIONARIO_INICIAL);
+      setSucesso('Questionario excluido.');
+      await carregar('');
+    } catch (err) { setErro(err.message); }
+    finally { setExcluindo(false); }
   }
 
   async function salvarResposta(e) {
@@ -110,13 +239,34 @@ export default function Pesquisas() {
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <header className="mb-6"><p className="section-eyebrow mb-1">Pesquisa politica</p><h1 className="page-title">Questionarios e entrevistas</h1><p className="page-subtitle">Intencao de voto, rejeicao, dados demograficos e comparativos regionais.</p></header>
       {erro && <AlertBox tipo="erro">{erro}</AlertBox>}
+      {sucesso && <AlertBox tipo="sucesso">{sucesso}</AlertBox>}
 
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
-        {podeEditar && <form onSubmit={criarQuestionario} className="card p-5 lg:col-span-1"><p className="card-title mb-3">Novo questionario</p><label className="label">Titulo</label><input className="input mb-3" value={formQ.titulo} onChange={e => setFormQ({ ...formQ, titulo: e.target.value })} required /><label className="label">Descricao</label><textarea className="input mb-3" value={formQ.descricao} onChange={e => setFormQ({ ...formQ, descricao: e.target.value })} />{formQ.perguntas.map((p, i) => <div key={i} className="grid grid-cols-2 gap-2 mb-2"><input className="input" value={p.texto} onChange={e => alterarPergunta(i, 'texto', e.target.value)} placeholder="Pergunta" /><select className="input" value={p.tipo} onChange={e => alterarPergunta(i, 'tipo', e.target.value)}>{TIPOS.map(t => <option key={t[0]} value={t[0]}>{t[1]}</option>)}</select><input className="input col-span-2" value={(p.opcoes || []).join(', ')} onChange={e => alterarPergunta(i, 'opcoes', e.target.value.split(',').map(x => x.trim()).filter(Boolean))} placeholder="Opcoes separadas por virgula" /></div>)}<button type="button" className="btn-secondary mb-3" onClick={() => setFormQ({ ...formQ, perguntas: formQ.perguntas.concat([{ texto: '', tipo: 'texto', opcoes: [] }]) })}>Adicionar pergunta</button><button className="btn-primary w-full">Salvar questionario</button></form>}
+        {podeEditar && <form onSubmit={salvarQuestionario} className="card p-5 lg:col-span-1">
+          <div className="flex items-center justify-between gap-3 mb-3"><p className="card-title">{editandoId ? 'Editar questionario' : 'Novo questionario'}</p><button type="button" className="btn-secondary text-xs" onClick={novoQuestionario}>Novo</button></div>
+          <label className="label">Titulo</label><input className="input mb-3" value={formQ.titulo} onChange={e => setFormQ({ ...formQ, titulo: e.target.value })} required />
+          <label className="label">Descricao</label><textarea className="input mb-3" value={formQ.descricao} onChange={e => setFormQ({ ...formQ, descricao: e.target.value })} />
+          <label className="label">Cargo pesquisado</label><input className="input mb-3" value={formQ.cargo} onChange={e => setFormQ({ ...formQ, cargo: e.target.value })} placeholder="Opcional" />
+          <p className="card-title mb-3">Perguntas</p>
+          {formQ.perguntas.length === 0 && <p className="text-sm text-slate-400 mb-3">Nenhuma pergunta adicionada.</p>}
+          {formQ.perguntas.map((p, i) => <div key={i} className="border border-slate-200 rounded-md p-3 mb-3 bg-white">
+            <div className="flex items-center justify-between gap-2 mb-2"><span className="text-xs font-semibold text-slate-500">Pergunta {i + 1}</span><div className="flex gap-1"><button type="button" className="btn-secondary text-xs" onClick={() => moverPergunta(i, -1)}>Subir</button><button type="button" className="btn-secondary text-xs" onClick={() => moverPergunta(i, 1)}>Descer</button><button type="button" className="btn-secondary text-xs text-red-700" onClick={() => removerPergunta(i)}>Excluir</button></div></div>
+            <input className="input mb-2" value={p.texto} onChange={e => alterarPergunta(i, 'texto', e.target.value)} placeholder="Texto da pergunta" />
+            <select className="input mb-2" value={p.tipo} onChange={e => alterarPergunta(i, 'tipo', e.target.value)}>{TIPOS.map(t => <option key={t[0]} value={t[0]}>{t[1]}</option>)}</select>
+            {(p.tipo === 'unica' || p.tipo === 'multipla') && <input className="input" value={(p.opcoes || []).join(', ')} onChange={e => alterarOpcoes(i, e.target.value)} placeholder="Opcoes separadas por virgula" />}
+          </div>)}
+          <button type="button" className="btn-secondary mb-3 w-full" onClick={() => setFormQ({ ...formQ, perguntas: formQ.perguntas.concat([novaPergunta('texto')]) })}>Adicionar pergunta</button>
+          <button className="btn-primary w-full" disabled={salvando}>{salvando ? 'Salvando...' : (editandoId ? 'Salvar alteracoes' : 'Salvar questionario')}</button>
+        </form>}
 
         <div className="card p-5 lg:col-span-2">
-          <label className="label">Questionario</label><select className="input mb-3" value={selecionado} onChange={e => setSelecionado(e.target.value)}>{questionarios.map(q => <option key={q.id} value={q.id}>{q.titulo}</option>)}</select>
+          <div className="flex flex-wrap items-end gap-3 mb-3">
+            <div className="flex-1 min-w-64"><label className="label">Questionario</label><select className="input" value={selecionado} onChange={e => setSelecionado(e.target.value)}>{questionarios.map(q => <option key={q.id} value={q.id}>{q.titulo}</option>)}</select></div>
+            {podeEditar && selecionado && <button type="button" className="btn-secondary" onClick={editarSelecionado}>Editar questionario</button>}
+            {podeEditar && selecionado && <button type="button" className="btn-secondary text-red-700" disabled={excluindo} onClick={excluirQuestionario}>{excluindo ? 'Excluindo...' : 'Excluir questionario'}</button>}
+          </div>
           {linkPublico && <div className="alert-warning mb-4"><p className="mb-2">{estat?.aviso_legal}</p><p className="text-xs break-all">Link publico: {linkPublico}</p><div className="flex flex-wrap gap-2 mt-3"><button type="button" className="btn-secondary" onClick={copiarLink}>{copiado ? 'Copiado' : 'Copiar link'}</button><a className="btn-secondary" href={'https://api.whatsapp.com/send?text=' + encodeURIComponent('Participe da consulta popular: ' + linkPublico)} target="_blank" rel="noreferrer">Compartilhar no WhatsApp</a></div></div>}
+          {selecionadoObj && <div className="mb-5"><p className="card-title mb-2">Perguntas cadastradas</p>{(selecionadoObj.perguntas || []).map((p, i) => <p key={i} className="text-sm text-slate-600 mb-1">{i + 1}. {p.texto} <span className="text-xs text-slate-400">({TIPOS.find(t => t[0] === p.tipo)?.[1] || p.tipo})</span></p>)}</div>}
           {!estat ? <p className="text-sm text-slate-400">Selecione ou crie um questionario.</p> : <><div className="grid grid-cols-3 gap-3 mb-5"><div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-400">Entrevistas</p><p className="text-2xl font-bold">{estat.total}</p></div><div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-400">Conhecem candidato</p><p className="text-2xl font-bold">{estat.indicadores?.conhecem || 0}</p></div><div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-400">Voluntarios</p><p className="text-2xl font-bold">{estat.indicadores?.voluntarios || 0}</p></div></div><div className="grid md:grid-cols-2 gap-6"><div><p className="card-title mb-3">Intencao de voto</p>{(estat.intencao || []).map(x => <Barra key={x.nome} nome={x.nome} total={x.total} base={estat.total} />)}</div><div><p className="card-title mb-3">Rejeicao</p>{(estat.rejeicao || []).map(x => <Barra key={x.nome} nome={x.nome} total={x.total} base={estat.total} />)}</div></div><p className="card-title mt-5 mb-3">Relatorio regional</p><div className="overflow-x-auto"><table className="gov-table"><tbody>{(estat.regional || []).map(r => <tr key={r.regiao}><td>{r.regiao}</td><td>{r.total} entrevistas</td><td>{r.voluntarios} voluntarios</td></tr>)}</tbody></table></div></>}
         </div>
       </div>
